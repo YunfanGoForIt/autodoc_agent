@@ -18,7 +18,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # 加载环境变量
-load_dotenv("/www/wwwroot/mcp_deepwiki/.env")
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
 
 class DeepWikiMCPClient:
@@ -45,21 +45,7 @@ class DeepWikiMCPClient:
         os.makedirs(output_dir, exist_ok=True)
 
         try:
-            # 这里调用 DeepWiki MCP 的 API
-            # 假设有一个简单的 HTTP 接口
-            # 实际实现需要根据 DeepWiki MCP 的具体接口调整
-
-            # 方法1: 如果 DeepWiki 有 HTTP API
-            # async with httpx.AsyncClient(timeout=self.timeout) as client:
-            #     response = await client.post(
-            #         f"{self.base_url}/fetch",
-            #         json={"repo": repo_name}
-            #     )
-            #     response.raise_for_status()
-            #     docs = response.json()
-            #     # 保存文档到 output_dir
-
-            # 方法2: 使用 mcp 代理命令
+            # 方法1: 使用 mcp 代理命令
             cmd = f"mcp call deepwiki fetch-and-save '{repo_name}' '{output_dir}'"
             logger.info(f"执行命令: {cmd}")
 
@@ -74,11 +60,80 @@ class DeepWikiMCPClient:
                 logger.info(f"成功获取文档: {repo_name}")
                 return True
             else:
-                logger.error(f"获取文档失败: {stderr.decode()}")
-                return False
+                error_msg = stderr.decode().strip()
+                logger.warning(f"MCP 调用失败: {error_msg}")
+                # 回退到方法2
+                return await self._fetch_from_github_fallback(repo_name, output_dir)
 
         except Exception as e:
             logger.error(f"获取文档异常: {e}")
+            return False
+
+    async def _fetch_from_github_fallback(self, repo_name: str, output_dir: str) -> bool:
+        """
+        回退方法：从 GitHub API 获取 README 作为 overview
+
+        Args:
+            repo_name: 仓库名称
+            output_dir: 输出目录
+
+        Returns:
+            bool: 是否成功
+        """
+        logger.info(f"使用 GitHub API 回退获取文档: {repo_name}")
+
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                # 获取仓库信息
+                response = await client.get(
+                    f"https://api.github.com/repos/{repo_name}",
+                    headers={"Accept": "application/vnd.github.v3+json"},
+                    follow_redirects=True
+                )
+
+                if response.status_code != 200:
+                    logger.error(f"获取仓库信息失败: {response.status_code}")
+                    return False
+
+                repo_info = response.json()
+                description = repo_info.get("description", "")
+                stars = repo_info.get("stargazers_count", 0)
+                language = repo_info.get("language", "")
+
+                # 获取 README
+                readme_response = await client.get(
+                    f"https://api.github.com/repos/{repo_name}/readme",
+                    headers={"Accept": "application/vnd.github.v3+json"},
+                    follow_redirects=True
+                )
+
+                readme_content = ""
+                if readme_response.status_code == 200:
+                    import base64
+                    readme_content = base64.b64decode(
+                        readme_response.json().get("content", "")
+                    ).decode("utf-8", errors="ignore")
+                else:
+                    logger.warning(f"无法获取 README: {readme_response.status_code}")
+
+                # 生成 overview.md
+                overview_path = os.path.join(output_dir, "Overview.md")
+                with open(overview_path, "w", encoding="utf-8") as f:
+                    f.write(f"# {repo_name}\n\n")
+                    f.write(f"## 项目描述\n\n{description}\n\n")
+                    if stars:
+                        f.write(f"**Stars:** {stars}\n\n")
+                    if language:
+                        f.write(f"**语言:** {language}\n\n")
+                    f.write("---\n\n")
+                    f.write("## README 内容\n\n")
+                    f.write(readme_content if readme_content else "（无法获取 README 内容）")
+
+                logger.info(f"已生成 overview.md: {overview_path}")
+                return True
+
+        except Exception as e:
+            logger.error(f"GitHub API 回退失败: {e}")
             return False
 
     def check_local_docs(self, repo_name: str, docs_root: str) -> Optional[str]:
@@ -163,8 +218,9 @@ async def prepare_workspace(repo_name: str, workspace_root: str, docs_root: str)
 
 async def main():
     """测试脚本"""
-    docs_root = "/www/wwwroot/mcp_deepwiki/output"
-    workspace_root = "/www/wwwroot/deepwiki_agent/workspace"
+    app_dir = os.path.dirname(os.path.abspath(__file__))
+    docs_root = os.path.join(app_dir, "docs")
+    workspace_root = os.path.join(app_dir, "workspace")
 
     # 测试准备工作区
     work_dir = await prepare_workspace(

@@ -29,7 +29,7 @@ pip install httpx python-dotenv
 
 ### 2. 配置环境变量
 
-编辑 `/www/wwwroot/deepwiki_agent/.env`：
+编辑 `~/Projects/autodoc_agent/.env`：
 ```bash
 GITHUB_TOKEN=your_github_token
 FEISHU_WEBHOOK_URL=https://open.feishu.cn/open-apis/bot/v2/hook/YOUR_WEBHOOK_URL
@@ -60,7 +60,7 @@ FEISHU_WEBHOOK_URL=https://open.feishu.cn/open-apis/bot/v2/hook/YOUR_WEBHOOK_URL
 screen -S deepwiki_agent
 
 # 在 screen 中运行
-cd /www/wwwroot/deepwiki_agent
+cd ~/Projects/autodoc_agent
 python run_agent.py
 
 # 分离 screen：Ctrl+A 然后 D
@@ -70,7 +70,7 @@ python run_agent.py
 
 ```bash
 # 查看生成的文档
-ls -lh /home/deepwiki/.deepwiki/final_docs/
+ls -lh ~/Projects/autodoc_agent/final_docs/
 
 # 重新连接 screen
 screen -r deepwiki_agent
@@ -144,7 +144,7 @@ deepwiki_agent/
 
 ### 重新处理某个仓库
 
-编辑 `/home/deepwiki/.deepwiki/state.json`，删除对应的 repo_id 记录，然后重启。
+编辑 `~/Projects/autodoc_agent/state.json`，删除对应的 repo_id 记录，然后重启。
 
 ### 查看日志
 

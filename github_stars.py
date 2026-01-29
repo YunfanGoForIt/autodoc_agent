@@ -96,6 +96,24 @@ class GitHubMonitor:
             logger.info(f"未找到 README: {repo_name}")
             return None
 
+    async def get_repo_info(self, repo_name: str) -> Dict[str, Any]:
+        """获取仓库详细信息"""
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            url = f"https://api.github.com/repos/{repo_name}"
+            response = await client.get(url, headers=self.headers)
+            response.raise_for_status()
+            data = response.json()
+            # 返回与 star 数据格式一致的字典
+            return {
+                "id": data["id"],
+                "full_name": data["full_name"],
+                "description": data.get("description", ""),
+                "html_url": data["html_url"],
+                "stargazers_count": data["stargazers_count"],
+                "forks_count": data["forks_count"],
+                "language": data.get("language"),
+            }
+
 
 async def main():
     """测试脚本"""

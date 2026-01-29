@@ -1,6 +1,6 @@
 # 环境变量配置（包含敏感信息）
 .env
-
+.mcp.json
 # Python 缓存
 __pycache__/
 *.py[cod]
@@ -9,6 +9,8 @@ __pycache__/
 # 工作区数据
 workspace/
 final_docs/
+docs/
 
 # 日志文件
 *.log
+state.json
